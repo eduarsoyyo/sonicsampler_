@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sonic Sampler AI</title>
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#07070f;color:#dde2ec;font-family:'SF Mono','Fira Code',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:#0b0b18;}
+::-webkit-scrollbar-thumb{background:#252540;border-radius:2px;}
+
+/* ── AUTH ── */
+#auth{position:absolute;inset:0;background:#07070f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:100;}
+.alogo{width:68px;height:68px;background:linear-gradient(140deg,#00d4ff,#7c3aed);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:34px;}
+.atitle{font-family:system-ui,sans-serif;font-size:26px;font-weight:800;background:linear-gradient(90deg,#00d4ff,#bf5af2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.asub{font-size:13px;color:#2a2a50;font-family:system-ui,sans-serif;text-align:center;max-width:320px;line-height:1.65;}
+#aerr{font-size:12px;color:#ff453a;display:none;font-family:system-ui,sans-serif;}
+.aspotbtn{display:flex;align-items:center;gap:10px;padding:14px 32px;background:#1DB954;border:none;border-radius:50px;color:#000;font-size:14px;font-weight:700;font-family:system-ui,sans-serif;cursor:pointer;transition:all .2s;}
+.aspotbtn:hover{transform:scale(1.04);background:#1ed760;}
+.anote{font-size:11px;color:#1a1a38;font-family:system-ui,sans-serif;}
+
+/* ── HEADER ── */
+#hdr{height:50px;background:#0b0b18;border-bottom:1px solid #1a1a2e;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;}
+.hlogo{width:26px;height:26px;background:linear-gradient(140deg,#00d4ff,#7c3aed);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.htitle{font-family:system-ui,sans-serif;font-size:13px;font-weight:800;letter-spacing:.06em;background:linear-gradient(90deg,#00d4ff,#bf5af2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hsub{font-size:7px;color:#1e1e3a;letter-spacing:.12em;}
+.badge{display:flex;align-items:center;gap:4px;border-radius:4px;padding:2px 8px;font-size:7.5px;font-family:system-ui,sans-serif;border:1px solid;}
+.bg{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.18);color:#22c55e;}
+.bs{background:rgba(29,185,84,.1);border-color:rgba(29,185,84,.25);color:#1DB954;}
+.spacer{flex:1;}
+.hbtn{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:5px;border:1px solid;font-size:9.5px;font-weight:700;font-family:system-ui,sans-serif;cursor:pointer;background:transparent;transition:all .2s;}
+.hbtn:active{transform:scale(.97);}
+.hbtn-play{border-color:rgba(48,209,88,.3);color:#30d158;}
+.hbtn-play.on{border-color:rgba(255,159,10,.4);color:#ff9f0a;background:rgba(255,159,10,.1);}
+
+/* ── MAIN ── */
+#main{flex:1;display:flex;overflow:hidden;min-height:0;}
+
+/* ── COL A (import) ── */
+#colA{width:295px;background:#0b0b18;border-right:1px solid #1a1a2e;display:flex;flex-direction:column;flex-shrink:0;}
+.shdr{padding:8px 13px 5px;border-bottom:1px solid #0f0f22;}
+.slbl{font-size:8.5px;font-weight:700;letter-spacing:.13em;font-family:system-ui,sans-serif;display:flex;align-items:center;gap:5px;}
+.ssub{font-size:7.5px;color:#1a1a38;margin-top:1px;font-family:system-ui,sans-serif;}
+#sw{padding:8px 11px 5px;position:relative;}
+#srch{width:100%;background:#0f0f20;border:1px solid #1a1a30;border-radius:5px;padding:6px 8px 6px 24px;color:#dde2ec;font-size:9.5px;outline:none;font-family:inherit;}
+#srch:focus{border-color:#00d4ff44;}
+#srch:disabled{opacity:.4;}
+#dd{display:none;position:absolute;left:11px;right:11px;top:calc(100% - 3px);background:#0f0f20;border:1px solid #1a1a30;border-radius:6px;z-index:300;max-height:190px;overflow-y:auto;box-shadow:0 14px 44px rgba(0,0,0,.65);}
+#dd.open{display:block;}
+.dr{padding:6px 9px;cursor:pointer;border-bottom:1px solid #121228;display:flex;align-items:center;gap:7px;transition:background .1s;}
+.dr:hover,.dr.sel{background:#141428;}
+#sc{display:none;padding:0 11px 8px;}
+.ci{background:#0d0d1e;border:1px solid #181830;border-radius:7px;padding:9px 10px;}
+.ct{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.ca{width:38px;height:38px;border-radius:5px;flex-shrink:0;background:#111;overflow:hidden;}
+.ca img{width:100%;height:100%;object-fit:cover;}
+.cs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.cv{background:#090918;border-radius:4px;padding:4px 5px;text-align:center;}
+.cvl{font-size:7px;color:#1a1a38;letter-spacing:.1em;}
+.cvv{font-size:11px;font-weight:700;color:#00d4ff;font-family:system-ui,sans-serif;}
+#ww{flex:1;padding:0 11px 8px;display:flex;flex-direction:column;min-height:0;}
+.whdr{font-size:7px;color:#1a1a38;letter-spacing:.09em;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+#wtime{color:#00d4ff;font-size:7px;}
+#wbox{flex:1;min-height:65px;background:#090918;border-radius:5px;border:1px solid #181830;overflow:hidden;position:relative;cursor:crosshair;}
+#wcanvas{width:100%;height:100%;display:none;}
+#wempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+#wri{display:none;margin-top:3px;justify-content:space-between;align-items:center;}
+#wlen{font-size:7px;color:#00d4ff66;}
+.wclr{background:transparent;border:none;color:#252545;font-size:7.5px;cursor:pointer;font-family:inherit;}
+/* playback bar */
+#pbw{display:none;background:#0c0c1e;border-top:1px solid #0f0f22;padding:6px 11px;flex-shrink:0;}
+#pbn{font-size:9px;font-family:system-ui,sans-serif;color:#dde2ec;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#pba{font-size:8px;color:#303060;margin:1px 0 4px;}
+.pbr{display:flex;align-items:center;gap:8px;}
+#pbt{width:24px;height:24px;border-radius:50%;border:1px solid #303060;background:transparent;color:#dde2ec;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#pbt:hover{border-color:#1DB954;color:#1DB954;}
+.pbb{flex:1;height:3px;background:#1a1a30;border-radius:2px;cursor:pointer;}
+#pbp{height:100%;background:#1DB954;border-radius:2px;width:0%;pointer-events:none;}
+#pbtime{font-size:8px;color:#303060;flex-shrink:0;font-family:monospace;}
+#pbvol{width:52px;accent-color:#1DB954;}
+
+/* ── COL B (stems) ── */
+#colB{flex:1;background:#090914;display:flex;flex-direction:column;min-width:0;}
+#abtn{margin:10px 14px 0;padding:9px 0;background:#0c0c1c;border:1px solid #141428;border-radius:6px;color:#1a1a38;cursor:not-allowed;font-size:11px;font-weight:700;letter-spacing:.07em;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s;}
+#abtn.ready{background:linear-gradient(135deg,#4a18a0,#bf5af2);border-color:transparent;color:#fff;cursor:pointer;box-shadow:0 4px 22px rgba(124,58,237,.32);}
+#prw{display:none;padding:8px 14px 0;}
+.phdr{display:flex;justify-content:space-between;font-size:8px;color:#4a4a6a;margin-bottom:4px;}
+#ppct{color:#bf5af2;font-weight:700;}
+.pbg{background:#0c0c1c;border-radius:3px;height:3px;overflow:hidden;}
+#pfill{height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#bf5af2,#00d4ff);border-radius:3px;transition:width .04s linear;}
+#stw{flex:1;padding:8px 14px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+#stg{display:none;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;flex:1;}
+/* STEM CARD — key element */
+.stc{background:#0c0c1a;border:2px solid #141428;border-radius:10px;padding:10px 11px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:6px;}
+.stc:hover{border-color:#2a2a50;}
+.stc.on{background:rgba(12,12,28,.98);}
+.stt{display:flex;align-items:center;gap:7px;}
+.std{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.stn{font-size:10px;font-weight:700;letter-spacing:.1em;font-family:system-ui,sans-serif;}
+.stf{font-size:7px;}
+.stal{margin-left:auto;font-size:7px;display:none;}
+/* sampler status */
+.stload{font-size:7.5px;font-family:system-ui,sans-serif;display:none;align-items:center;gap:5px;}
+.stload .dot{width:6px;height:6px;border-radius:50%;animation:pulse 1s ease infinite;}
+/* DOWNLOAD BUTTON per stem */
+.dl-btn{display:none;align-items:center;gap:5px;padding:5px 10px;border-radius:5px;border:1px solid;font-size:8.5px;font-weight:700;font-family:system-ui,sans-serif;cursor:pointer;background:transparent;transition:all .2s;text-decoration:none;margin-top:2px;}
+.dl-btn:hover{opacity:.8;}
+.dl-btn:active{transform:scale(.97);}
+.spectro{display:flex;align-items:flex-end;gap:2px;height:48px;}
+.sb{width:3px;flex-shrink:0;border-radius:2px;transition:height .07s ease;}
+#stempty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#181830;}
+#legal{padding:5px 13px;border-top:1px solid #0d0d1e;font-size:7px;color:#1a1a38;font-family:system-ui,sans-serif;line-height:1.7;}
+
+/* ── PIANO ── */
+#pmod{background:#08080e;border-top:1px solid #1a1a2e;flex-shrink:0;}
+#phdr{padding:4px 13px 3px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #0e0e1e;flex-wrap:wrap;}
+#plbl{font-size:8.5px;font-weight:700;letter-spacing:.13em;font-family:system-ui,sans-serif;}
+/* sampler mode pill */
+#smode{display:none;font-size:7.5px;font-family:system-ui,sans-serif;border-radius:4px;padding:2px 8px;border:1px solid;font-weight:700;}
+.oc{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.oc>span{font-size:7.5px;color:#1e1e38;font-family:system-ui,sans-serif;}
+.ob{background:#0d0d1e;border:1px solid #1a1a30;border-radius:4px;color:#404060;padding:2px 7px;font-size:10px;line-height:1;cursor:pointer;font-family:inherit;}
+#oval{font-size:11px;font-weight:700;font-family:system-ui,sans-serif;min-width:16px;text-align:center;}
+#anote{font-size:7.5px;font-family:monospace;color:#181832;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .1s;}
+#pscroll{overflow-x:auto;overflow-y:hidden;padding:7px 12px 9px;background:#070710;}
+#pkeys{position:relative;height:128px;}
+.wk{position:absolute;top:0;border-radius:0 0 5px 5px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:5px;transition:background .05s,box-shadow .05s;}
+.bk{position:absolute;top:0;z-index:2;border-radius:0 0 4px 4px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:3px;transition:all .05s;}
+.kl{font-size:7px;font-family:monospace;line-height:1;}
+.nl{font-size:6px;font-family:monospace;margin-top:1px;}
+#pleg{padding:3px 13px 4px;border-top:1px solid #0d0d1e;display:flex;gap:14px;flex-wrap:wrap;}
+.li{display:flex;align-items:center;gap:4px;font-size:7px;color:#202040;font-family:system-ui,sans-serif;}
+.lk{color:#242442;font-family:monospace;}
+
+/* ── TOAST ── */
+#toast{display:none;position:fixed;bottom:14px;right:14px;z-index:9999;border-radius:10px;padding:13px 15px;min-width:290px;box-shadow:0 10px 40px rgba(0,0,0,.75);}
+
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes scanH{from{width:0}to{width:100%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth">
+  <div class="alogo">🎧</div>
+  <div class="atitle">Sonic Sampler AI</div>
+  <div class="asub">Conecta Spotify Premium. Separa instrumentos con IA. Descarga el stem que quieras para GarageBand.</div>
+  <div id="aerr"></div>
+  <button class="aspotbtn" onclick="doLogin()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+    Conectar con Spotify
+  </button>
+  <div class="anote">Requiere Spotify Premium · Sin guardar contraseñas</div>
+</div>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hlogo">🎧</div>
+  <div><div class="htitle">SONIC SAMPLER AI</div><div class="hsub">SPOTIFY · DEMUCS AI · STEM DOWNLOAD → GARAGEBAND</div></div>
+  <div class="badge bg">✓ LEGAL</div>
+  <div class="badge bs" id="ubadge" style="display:none"></div>
+  <div class="spacer"></div>
+  <button class="hbtn hbtn-play" id="play-btn" style="display:none" onclick="togglePlay()">▶ PLAY</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<!-- COL A: IMPORT + WAVEFORM -->
+<div id="colA">
+  <div class="shdr"><div class="slbl" style="color:#00d4ff">♪ 01 · IMPORT</div><div class="ssub" id="ssub">Iniciando…</div></div>
+  <div id="sw">
+    <span style="position:absolute;left:19px;top:50%;transform:translateY(-50%);color:#252545;font-size:11px;pointer-events:none">⌕</span>
+    <input id="srch" placeholder="Buscar en Spotify… ej: Interstellar" oninput="onSrch()" onfocus="openDD()" onblur="closeDD()" disabled>
+    <div id="dd"></div>
+  </div>
+  <div id="sc">
+    <div class="ci">
+      <div class="ct">
+        <div class="ca"><img id="cimg" style="display:none"></div>
+        <div><div id="cname" style="font-size:10px;font-weight:700;color:#dde2ec;font-family:system-ui,sans-serif;"></div><div id="cartist" style="font-size:8px;color:#303060;"></div></div>
+      </div>
+      <div class="cs">
+        <div class="cv"><div class="cvl">BPM</div><div class="cvv" id="sbpm">—</div></div>
+        <div class="cv"><div class="cvl">TONO</div><div class="cvv" id="skey">—</div></div>
+        <div class="cv"><div class="cvl">DUR</div><div class="cvv" id="sdur">—</div></div>
+      </div>
+    </div>
+  </div>
+  <div id="ww">
+    <div class="whdr">
+      <span>~ WAVEFORM · ARRASTRA = REGIÓN</span>
+      <span id="wtime"></span>
+    </div>
+    <div id="wbox" onmousedown="wvD(event)" onmousemove="wvM(event)" onmouseup="wvU()">
+      <div id="wempty">
+        <div style="display:flex;gap:2px;align-items:flex-end">
+          <div style="width:3px;height:8px;background:#111128;border-radius:2px"></div>
+          <div style="width:3px;height:14px;background:#111128;border-radius:2px"></div>
+          <div style="width:3px;height:10px;background:#111128;border-radius:2px"></div>
+          <div style="width:3px;height:18px;background:#111128;border-radius:2px"></div>
+          <div style="width:3px;height:8px;background:#111128;border-radius:2px"></div>
+        </div>
+        <span style="font-size:8px;color:#161630">SIN AUDIO</span>
+      </div>
+      <canvas id="wcanvas"></canvas>
+    </div>
+    <div id="wri"><span id="wlen"></span><button class="wclr" onclick="clrReg()">✕ borrar</button></div>
+  </div>
+  <div id="pbw">
+    <div id="pbn">—</div><div id="pba">—</div>
+    <div class="pbr">
+      <button id="pbt" onclick="togglePlay()">▶</button>
+      <div class="pbb" onclick="seekTr(event)"><div id="pbp"></div></div>
+      <span id="pbtime">0:00</span>
+      <input type="range" id="pbvol" min="0" max="100" value="80" oninput="setVol(this.value)">
+    </div>
+  </div>
+</div>
+
+<!-- COL B: AI STEMS -->
+<div id="colB">
+  <div class="shdr">
+    <div class="slbl" style="color:#bf5af2">
+      ⊞ 02 · SEPARAR STEMS
+      <span id="rbadge" style="display:none;font-size:7px;color:#00d4ff;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:3px;padding:1px 6px;margin-left:6px;font-weight:400;">REGIÓN ACTIVA</span>
+    </div>
+    <div class="ssub" id="extsub">Selecciona canción y pulsa analizar</div>
+  </div>
+
+  <button id="abtn" onclick="analyze()">⊞ SEPARAR STEMS CON IA</button>
+
+  <div id="prw">
+    <div class="phdr"><span id="pstep">Iniciando…</span><span id="ppct">0%</span></div>
+    <div class="pbg"><div id="pfill"></div></div>
+  </div>
+
+  <div id="stw">
+    <div id="stempty">
+      <span style="font-size:28px">🎼</span>
+      <span style="font-size:10px;font-family:system-ui,sans-serif;color:#1a1a38" id="emsg">Selecciona una canción primero</span>
+      <span style="font-size:8px;font-family:system-ui,sans-serif;color:#111128" id="etip"></span>
+    </div>
+    <div id="stg"></div>
+  </div>
+
+  <div id="legal">
+    <span style="color:#1e1e38">ⓘ</span>
+    Requiere Spotify Premium. Demucs es open-source (MIT). Los stems descargados son para uso personal.
+    El piano toca el stem <em>pitcheado</em> en tiempo real — lo que escuchas es el instrumento real de la canción.
+  </div>
+</div>
+</div>
+
+<!-- PIANO -->
+<div id="pmod">
+  <div id="phdr">
+    <span id="plbl" style="color:#0a84ff">♩ 03 · PIANO 88 TECLAS</span>
+    <span id="smode"></span>
+    <div class="oc">
+      <span>OCTAVA</span>
+      <button class="ob" onclick="chOct(-1)">−</button>
+      <span id="oval" style="color:#0a84ff">4</span>
+      <button class="ob" onclick="chOct(1)">+</button>
+      <span style="color:#1a1a38;font-size:7px;">Z/X</span>
+    </div>
+    <div style="width:1px;height:18px;background:#1a1a2e;margin:0 4px;flex-shrink:0;"></div>
+    <span id="anote">A–J blancas · W E T Y U negras</span>
+  </div>
+  <div id="pscroll"><div id="pkeys"></div></div>
+  <div id="pleg">
+    <div class="li"><span class="lk">A W S E D F T G Y H U J</span><span>→ C C# D D# E F F# G G# A A# B</span></div>
+    <div class="li"><span class="lk">K I L O ; P</span><span>→ C C# D D# E F (oct+1)</span></div>
+    <div class="li"><span class="lk">Z / X</span><span>→ Bajar / Subir octava</span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════ PIANO GEOMETRY ══════════════ */
+const WW=17,BW=10,WH=128,BH=80,BOFF=Math.round(WW*.63),PW=52*WW;
+const NN=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const IB=[false,true,false,true,false,false,true,false,true,false,true,false];
+const KEYS=(()=>{const k=[];let wi=0;for(let m=21;m<=108;m++){const ni=m%12,blk=IB[ni],oct=Math.floor(m/12)-1,freq=440*Math.pow(2,(m-69)/12),name=`${NN[ni]}${oct}`;if(!blk){k.push({m,name,freq,blk:false,x:wi*WW});wi++;}else{const pw=[...k].reverse().find(k=>!k.blk);k.push({m,name,freq,blk:true,x:pw.x+BOFF});}}return k;})();
+const KB={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,i:13,l:14,o:15,";":16,p:17};
+function k2m(k){const s=KB[k.toLowerCase()];if(s===undefined)return null;const m=12*(oct+1)+s;return m>=21&&m<=108?m:null;}
+
+/* ══════════════ STEM DEFINITIONS ══════════════
+   Demucs htdemucs separates into: drums, bass, other, vocals
+   We show all 4 + a "full mix" option
+*/
+const STEMS=[
+  {id:"other",  label:"Melodía / Órgano",  color:"#bf5af2", icon:"🎹", demucsKey:"other",  desc:"Piano, órgano, cuerdas, sintetizadores"},
+  {id:"vocals", label:"Voces",             color:"#64d2ff", icon:"🎤", demucsKey:"vocals", desc:"Voz principal y coros"},
+  {id:"bass",   label:"Bajo",              color:"#ff9f0a", icon:"🎸", demucsKey:"bass",   desc:"Línea de bajo"},
+  {id:"drums",  label:"Batería / Percusión",color:"#ff453a",icon:"🥁", demucsKey:"drums",  desc:"Batería y percusión"},
+];
+
+/* ══════════════ STATE ══════════════ */
+let aToken=null,rToken=null,tExp=0;
+let spPlayer=null,devId=null,pReady=false,curSt=null;
+let song=null,sel="other",region=null,oct=4;
+let aKeys=new Set();
+let stemsDone=false,specData={},specTimer=null;
+let realStems=null;       // {drums:url, bass:url, other:url, vocals:url}
+let samplerBufs={};       // decoded AudioBuffers per stem id
+let samplerLoading={};    // loading flags
+let activeNodes={};       // midi → BufferSource (for sampler)
+let actx=null,anodes={};  // for synth fallback
+let pbInt=null,dTimer=null,wDrag=false,wOrig=0;
+
+/* ══════════════ AUTH ══════════════ */
+(function(){
+  const h=new URLSearchParams(location.hash.slice(1));
+  const e=new URLSearchParams(location.search).get("auth_error");
+  if(e){const el=document.getElementById("aerr");el.textContent="Error: "+e;el.style.display="block";return;}
+  const at=h.get("access_token");
+  if(at){aToken=at;rToken=h.get("refresh_token");tExp=Date.now()+(parseInt(h.get("expires_in")||"3600")-60)*1000;history.replaceState(null,"",location.pathname);showApp();}
+})();
+function doLogin(){location.href="/.netlify/functions/callback?action=login";}
+async function ensureTok(){
+  if(Date.now()<tExp)return aToken;
+  try{const r=await fetch("/.netlify/functions/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rToken})});const d=await r.json();if(d.access_token){aToken=d.access_token;tExp=Date.now()+(d.expires_in-60)*1000;}}catch{}
+  return aToken;
+}
+async function showApp(){
+  document.getElementById("auth").style.display="none";
+  document.getElementById("ssub").textContent="Busca una canción — p.ej. Interstellar";
+  document.getElementById("srch").disabled=false;
+  try{const r=await fetch("https://api.spotify.com/v1/me",{headers:{Authorization:"Bearer "+aToken}});const u=await r.json();const b=document.getElementById("ubadge");b.textContent="♪ "+u.display_name;b.style.display="flex";}catch{}
+  buildPiano();
+}
+
+/* ══════════════ SPOTIFY SDK ══════════════ */
+window.onSpotifyWebPlaybackSDKReady=()=>{
+  spPlayer=new Spotify.Player({name:"Sonic Sampler AI",getOAuthToken:cb=>{ensureTok().then(cb);},volume:0.8});
+  spPlayer.addListener("ready",({device_id})=>{devId=device_id;pReady=true;});
+  spPlayer.addListener("player_state_changed",onPSt);
+  spPlayer.connect();
+};
+function onPSt(st){
+  if(!st)return;curSt=st;
+  const tr=st.track_window.current_track;
+  document.getElementById("pbn").textContent=tr.name;
+  document.getElementById("pba").textContent=tr.artists.map(a=>a.name).join(", ");
+  document.getElementById("pbt").textContent=st.paused?"▶":"⏸";
+  document.getElementById("pbw").style.display="block";
+  if(!st.paused){if(!pbInt)pbInt=setInterval(rPB,700);}else{clearInterval(pbInt);pbInt=null;}
+  upPB(st);
+}
+async function rPB(){if(!spPlayer)return;const st=await spPlayer.getCurrentState();if(st){curSt=st;upPB(st);}}
+function upPB(st){const pos=st.position,dur=st.duration;document.getElementById("pbp").style.width=(dur>0?pos/dur*100:0)+"%";document.getElementById("pbtime").textContent=fmtMs(pos)+" / "+fmtMs(dur);}
+function fmtMs(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,"0")}`;}
+function fmtS(s){const m=Math.floor(s/60),sc=Math.floor(s%60);return`${m}:${String(sc).padStart(2,"0")}`;}
+function parseDur(str){const[m,s]=str.split(":").map(Number);return m*60+s;}
+async function playTr(uri){
+  if(!pReady){document.getElementById("play-btn").textContent="⏳";await new Promise(r=>setTimeout(r,2500));if(!pReady)return;}
+  const tok=await ensureTok();
+  await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${devId}`,{method:"PUT",headers:{Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify({uris:[uri]})});
+  document.getElementById("play-btn").style.display="flex";
+}
+async function togglePlay(){
+  if(!spPlayer)return;await spPlayer.togglePlay();
+  const st=await spPlayer.getCurrentState();if(!st)return;
+  const on=!st.paused;
+  document.getElementById("play-btn").textContent=on?"⏸ PAUSE":"▶ PLAY";
+  document.getElementById("play-btn").classList.toggle("on",on);
+  document.getElementById("pbt").textContent=on?"⏸":"▶";
+}
+async function seekTr(e){if(!spPlayer||!curSt)return;const r=e.currentTarget.getBoundingClientRect();await spPlayer.seek(Math.floor(((e.clientX-r.left)/r.width)*curSt.duration));}
+function setVol(v){if(spPlayer)spPlayer.setVolume(v/100);}
+
+/* ══════════════ SEARCH ══════════════ */
+let sTimer=null;
+async function onSrch(){
+  clearTimeout(sTimer);const q=document.getElementById("srch").value.trim();
+  if(!q){document.getElementById("dd").classList.remove("open");return;}
+  sTimer=setTimeout(async()=>{
+    const tok=await ensureTok();
+    const r=await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=8&market=ES`,{headers:{Authorization:"Bearer "+tok}});
+    const d=await r.json();renderDD((d.tracks&&d.tracks.items)||[]);
+  },300);
+}
+function openDD(){if(document.getElementById("srch").value)document.getElementById("dd").classList.add("open");}
+function closeDD(){clearTimeout(dTimer);dTimer=setTimeout(()=>document.getElementById("dd").classList.remove("open"),200);}
+function renderDD(tracks){
+  const dd=document.getElementById("dd");
+  if(!tracks.length){dd.innerHTML=`<div style="padding:10px;font-size:9px;color:#303060;text-align:center">Sin resultados</div>`;dd.classList.add("open");return;}
+  dd.innerHTML="";
+  tracks.forEach(tr=>{
+    const row=document.createElement("div");row.className="dr"+(song&&song.id===tr.id?" sel":"");
+    const img=tr.album.images[2]||tr.album.images[0];
+    row.innerHTML=`<div style="width:24px;height:24px;border-radius:3px;overflow:hidden;flex-shrink:0;background:#111">${img?`<img src="${img.url}" style="width:100%;height:100%;object-fit:cover">`:"♪"}</div><div style="flex:1;min-width:0"><div style="font-size:9.5px;font-weight:700;color:#dde2ec;font-family:system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tr.name}</div><div style="font-size:8px;color:#303060">${tr.artists.map(a=>a.name).join(", ")}</div></div><div style="font-size:7.5px;color:#202040;flex-shrink:0">${fmtMs(tr.duration_ms)}</div>`;
+    row.onmousedown=()=>selSong(tr);dd.appendChild(row);
+  });
+  dd.classList.add("open");
+}
+
+function selSong(tr){
+  song={id:tr.id,uri:tr.uri,title:tr.name,artist:tr.artists.map(a=>a.name).join(", "),dur:fmtMs(tr.duration_ms),durMs:tr.duration_ms,img:(tr.album.images[1]||tr.album.images[0])?.url||null,previewUrl:tr.preview_url||null};
+  document.getElementById("srch").value="";document.getElementById("dd").classList.remove("open");
+  // reset
+  stemsDone=false;region=null;realStems=null;samplerBufs={};samplerLoading={};
+  clearInterval(specTimer);
+  document.getElementById("stg").style.display="none";document.getElementById("stg").innerHTML="";
+  document.getElementById("stempty").style.display="flex";document.getElementById("emsg").textContent="Pulsa Separar Stems";
+  document.getElementById("etip").textContent="Tip: selecciona una región de la waveform para analizar sólo esa parte";
+  document.getElementById("prw").style.display="none";
+  updRegUI();updSampler();
+  // card
+  const img=document.getElementById("cimg");if(song.img){img.src=song.img;img.style.display="block";}else img.style.display="none";
+  document.getElementById("cname").textContent=song.title;document.getElementById("cartist").textContent=song.artist;
+  document.getElementById("sbpm").textContent="~";document.getElementById("skey").textContent="—";document.getElementById("sdur").textContent=song.dur;
+  document.getElementById("sc").style.display="block";
+  document.getElementById("wempty").style.display="none";document.getElementById("wcanvas").style.display="block";
+  document.getElementById("play-btn").style.display="flex";
+  document.getElementById("abtn").className="ready";
+  document.getElementById("abtn").textContent="⊞ SEPARAR STEMS CON IA";
+  setTimeout(drawWave,40);playTr(song.uri);
+}
+
+/* ══════════════ WAVEFORM ══════════════ */
+function mkR(seed){let s=(seed^0xdeadbeef)>>>0;return()=>{s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};}
+function drawWave(){
+  if(!song)return;
+  const cv=document.getElementById("wcanvas"),box=document.getElementById("wbox");
+  cv.width=box.clientWidth;cv.height=box.clientHeight;
+  const c=cv.getContext("2d"),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const rng=mkR(song.id.split("").reduce((a,ch)=>a+ch.charCodeAt(0),0)*9973),N=600;
+  const pts=Array.from({length:N+1},(_,i)=>{const env=Math.sin((i/N)*Math.PI)*(0.5+0.35*Math.sin((i/N)*Math.PI*4));return(rng()*.5+rng()*.35+rng()*.15)*env;});
+  c.beginPath();c.moveTo(0,H/2);pts.forEach((v,i)=>c.lineTo((i/N)*W,H/2+v*(H/2-4)*.38));c.strokeStyle="rgba(124,58,237,.2)";c.lineWidth=1;c.stroke();
+  const fg=c.createLinearGradient(0,0,0,H);fg.addColorStop(0,"rgba(0,212,255,.07)");fg.addColorStop(1,"transparent");
+  c.beginPath();c.moveTo(0,H/2);pts.forEach((v,i)=>c.lineTo((i/N)*W,H/2-v*(H/2-4)));c.lineTo(W,H/2);c.closePath();c.fillStyle=fg;c.fill();
+  const sg=c.createLinearGradient(0,0,W,0);sg.addColorStop(0,"rgba(0,212,255,.2)");sg.addColorStop(.4,"#7c3aed");sg.addColorStop(.6,"#00d4ff");sg.addColorStop(1,"rgba(0,212,255,.2)");
+  c.beginPath();c.moveTo(0,H/2);pts.forEach((v,i)=>c.lineTo((i/N)*W,H/2-v*(H/2-4)));c.strokeStyle=sg;c.lineWidth=1.4;c.stroke();
+  if(region){
+    const x1=Math.min(region.s,region.e)*W,x2=Math.max(region.s,region.e)*W;
+    c.fillStyle="rgba(0,212,255,.09)";c.fillRect(x1,0,x2-x1,H);
+    c.fillStyle="rgba(0,212,255,.15)";c.fillRect(x1,0,x2-x1,11);
+    c.fillStyle="#00d4ff";c.font="7px monospace";c.fillText("REGIÓN",x1+3,8);
+    [x1,x2].forEach(hx=>{c.strokeStyle="#00d4ff88";c.lineWidth=1.5;c.beginPath();c.moveTo(hx,0);c.lineTo(hx,H);c.stroke();c.beginPath();c.arc(hx,H/2,4,0,Math.PI*2);c.fillStyle="#00d4ff";c.fill();});
+  }
+}
+function wvD(e){if(!song)return;const r=e.currentTarget.getBoundingClientRect(),ratio=(e.clientX-r.left)/r.width;wDrag=true;wOrig=ratio;region={s:ratio,e:ratio};drawWave();updRegUI();}
+function wvM(e){if(!wDrag||!song)return;const r=e.currentTarget.getBoundingClientRect();region={s:wOrig,e:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))};drawWave();updRegUI();}
+function wvU(){wDrag=false;}
+window.addEventListener("mouseup",()=>{wDrag=false;[...aKeys].forEach(m=>relNote(m));});
+window.addEventListener("resize",()=>{if(song)drawWave();});
+function clrReg(){region=null;drawWave();updRegUI();}
+function updRegUI(){
+  const wt=document.getElementById("wtime"),ri=document.getElementById("wri"),wl=document.getElementById("wlen"),rb=document.getElementById("rbadge"),ab=document.getElementById("abtn");
+  if(region&&Math.abs(region.e-region.s)>0.01&&song){
+    const dur=parseDur(song.dur),from=fmtS(Math.min(region.s,region.e)*dur),to=fmtS(Math.max(region.s,region.e)*dur),len=Math.round(Math.abs(region.e-region.s)*dur);
+    wt.textContent=`${from}→${to}`;ri.style.display="flex";wl.textContent=`${len}s`;rb.style.display="inline";
+    document.getElementById("extsub").textContent="Analizará sólo la región seleccionada";
+    if(song)ab.textContent="⊞ SEPARAR STEMS (REGIÓN)";
+  }else{
+    wt.textContent="";ri.style.display="none";rb.style.display="none";
+    document.getElementById("extsub").textContent="Selecciona región para analizar sólo esa parte";
+    if(song)ab.textContent="⊞ SEPARAR STEMS CON IA";
+    if(!region)region=null;
+  }
+}
+
+/* ══════════════ ANALYZE ══════════════ */
+function analyze(){
+  if(!song)return;stemsDone=false;
+  document.getElementById("prw").style.display="block";
+  document.getElementById("stg").style.display="none";document.getElementById("stg").innerHTML="";
+  document.getElementById("stempty").style.display="none";clearInterval(specTimer);
+  const steps=["Cargando Demucs…","Análisis espectral…","Separando instrumentos…","Post-procesando…","Listo ✓"];
+  const rl=region?Math.abs(region.e-region.s):1,dur=2000+rl*2000,t0=Date.now();
+  const iv=setInterval(()=>{
+    const p=Math.min(((Date.now()-t0)/dur)*100,100);
+    document.getElementById("pfill").style.width=p+"%";document.getElementById("ppct").textContent=Math.round(p)+"%";
+    document.getElementById("pstep").textContent=steps[Math.min(Math.floor(p/20),steps.length-1)];
+    if(p>=100){clearInterval(iv);document.getElementById("prw").style.display="none";stemsDone=true;renderStems();}
+  },40);
+  if(song.previewUrl)callDemucs(song.previewUrl);
+}
+
+async function callDemucs(url){
+  try{
+    const r=await fetch("/.netlify/functions/separate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio_url:url})});
+    const d=await r.json();
+    if(d.ok&&d.stems){realStems=d.stems;onStemsReady();}
+    else if(d.pending)pollD(d.predId);
+  }catch(e){console.warn("Demucs:",e);}
+}
+async function pollD(id,n=0){
+  if(n>20)return;await new Promise(r=>setTimeout(r,4000));
+  try{const r=await fetch(`/.netlify/functions/separate?poll=${id}`),d=await r.json();if(d.status==="succeeded"&&d.stems){realStems=d.stems;onStemsReady();}else if(d.status!=="failed")pollD(id,n+1);}catch{}
+}
+
+function onStemsReady(){
+  // Update download buttons and start loading buffers
+  STEMS.forEach(st=>{
+    const url=realStems[st.demucsKey];
+    // Update download button
+    const dlBtn=document.getElementById("dl-"+st.id);
+    if(dlBtn&&url){
+      dlBtn.style.display="flex";
+      dlBtn.onclick=()=>downloadStem(url,st);
+    }
+    // Update load status
+    const loadEl=document.getElementById("load-"+st.id);
+    if(loadEl){loadEl.style.display="flex";loadEl.querySelector("span").textContent="Cargando audio…";}
+    // Load the AudioBuffer for sampler
+    loadStemBuffer(st.id,url);
+  });
+}
+
+/* ══════════════ SAMPLER — load stem as AudioBuffer ══════════════ */
+function getACtx(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume();return actx;}
+
+async function loadStemBuffer(stemId,url){
+  if(!url||samplerBufs[stemId]||samplerLoading[stemId])return;
+  samplerLoading[stemId]=true;
+  try{
+    const ac=getACtx();
+    const resp=await fetch(url);
+    const arrayBuf=await resp.arrayBuffer();
+    const decoded=await ac.decodeAudioData(arrayBuf);
+    samplerBufs[stemId]=decoded;
+    samplerLoading[stemId]=false;
+    // Update UI
+    const loadEl=document.getElementById("load-"+stemId);
+    if(loadEl){loadEl.querySelector(".dot").style.background="#22c55e";loadEl.querySelector("span").textContent="Listo — toca el piano";}
+    // If this is the currently selected stem, update piano label
+    if(stemId===sel)updSampler();
+  }catch(e){
+    samplerLoading[stemId]=false;
+    console.warn("Buffer load failed:",e);
+    const loadEl=document.getElementById("load-"+stemId);
+    if(loadEl){loadEl.querySelector(".dot").style.background="#ff453a";loadEl.querySelector("span").textContent="Error — modo síntesis";}
+  }
+}
+
+/* ══════════════ DOWNLOAD STEM ══════════════ */
+async function downloadStem(url,stemDef){
+  const fname=`${(song?.title||"stem").replace(/[^a-z0-9]/gi,"_")}_${stemDef.id}.mp3`;
+  showToast("dl",{stem:stemDef.label,fname});
+  // Proxy through Netlify function to add Content-Disposition
+  const proxyUrl=`/.netlify/functions/separate?dl=${encodeURIComponent(url)}&name=${encodeURIComponent(fname)}`;
+  const a=document.createElement("a");a.href=proxyUrl;a.download=fname;a.click();
+}
+
+/* ══════════════ RENDER STEM CARDS ══════════════ */
+function renderStems(){
+  const g=document.getElementById("stg");g.innerHTML="";
+  STEMS.forEach(stemDef=>{
+    const active=sel===stemDef.id;
+    const card=document.createElement("div");card.className="stc"+(active?" on":"");card.id="stc"+stemDef.id;
+    if(active){card.style.borderColor=stemDef.color+"66";card.style.boxShadow=`0 0 22px ${stemDef.color}22`;}
+    card.innerHTML=`
+      <div class="stt">
+        <div class="std" style="background:${stemDef.color};${active?`box-shadow:0 0 7px ${stemDef.color};animation:pulse 1.5s ease infinite;`:""}"></div>
+        <span style="font-size:14px">${stemDef.icon}</span>
+        <span class="stn" style="color:${active?stemDef.color:"#404070"}">${stemDef.label.toUpperCase()}</span>
+        ${active?`<span class="stal" style="display:flex;color:${stemDef.color};font-size:7px;margin-left:auto;">● ACTIVO</span>`:""}
+      </div>
+      <div class="stf" style="color:${active?stemDef.color+"66":"#1a1a38"}">${stemDef.desc}</div>
+      <div class="stload" id="load-${stemDef.id}">
+        <div class="dot" style="background:#ff9f0a;width:6px;height:6px;border-radius:50%;flex-shrink:0;"></div>
+        <span style="font-size:7.5px;font-family:system-ui,sans-serif;color:#4a4a6a;">Esperando Demucs…</span>
+      </div>
+      <a class="dl-btn" id="dl-${stemDef.id}" style="color:${stemDef.color};border-color:${stemDef.color}44;background:${stemDef.color}0a;">
+        ↓ Descargar ${stemDef.label} .mp3
+      </a>
+      <div class="spectro" id="sp${stemDef.id}"></div>`;
+    card.onclick=(e)=>{if(e.target.closest(".dl-btn"))return;selStem(stemDef.id);};
+    g.appendChild(card);renderSB(stemDef.id);
+  });
+  g.style.display="grid";document.getElementById("stempty").style.display="none";
+  startSpec();updSampler();
+  // If real stems were already available (fast Demucs), trigger
+  if(realStems)onStemsReady();
+}
+
+function selStem(id){
+  sel=id;const stemDef=STEMS.find(s=>s.id===id);
+  STEMS.forEach(s=>{
+    const c=document.getElementById("stc"+s.id);if(!c)return;
+    const on=s.id===id;c.className="stc"+(on?" on":"");
+    c.style.borderColor=on?s.color+"66":"#141428";
+    c.style.boxShadow=on?`0 0 22px ${s.color}22`:"none";
+    c.querySelector(".stn").style.color=on?s.color:"#404070";
+    c.querySelector(".std").style.boxShadow=on?`0 0 7px ${s.color}`:"";
+    c.querySelector(".std").style.animation=on?"pulse 1.5s ease infinite":"";
+    c.querySelector(".stf").style.color=on?s.color+"66":"#1a1a38";
+    const al=c.querySelector(".stal");if(al)al.style.display=on?"flex":"none";
+  });
+  document.getElementById("plbl").style.color=stemDef.color;
+  document.getElementById("oval").style.color=stemDef.color;
+  [...aKeys].forEach(m=>renderKey(m,true));
+  updSampler();
+}
+
+function updSampler(){
+  const stemDef=STEMS.find(s=>s.id===sel);
+  const c=stemDef?.color||"#0a84ff";
+  const sm=document.getElementById("smode");
+  const hasBuf=!!samplerBufs[sel];
+  const isLoading=!!samplerLoading[sel];
+  if(hasBuf){
+    sm.style.display="inline";sm.style.color=c;sm.style.borderColor=c+"44";sm.style.background=c+"0f";
+    sm.textContent="● SAMPLER REAL — "+stemDef.label;
+  }else if(isLoading){
+    sm.style.display="inline";sm.style.color="#ff9f0a";sm.style.borderColor="#ff9f0a44";sm.style.background="#ff9f0a0f";
+    sm.textContent="⏳ Cargando audio…";
+  }else if(stemsDone){
+    sm.style.display="inline";sm.style.color="#3a3a6a";sm.style.borderColor="#1a1a38";sm.style.background="transparent";
+    sm.textContent="~ SÍNTESIS (Demucs pendiente)";
+  }else{
+    sm.style.display="none";
+  }
+}
+
+/* ══════════════ SPECTROGRAM ══════════════ */
+function mkRF(seed){let s=(seed^0xf00d)>>>0;return()=>{s^=s<<13;s^=s>>17;s^=s<<5;return(s>>>0)/4294967296;};}
+function renderSB(id){
+  const el=document.getElementById("sp"+id);if(!el)return;
+  const st=STEMS.find(s=>s.id===id),on=id===sel,bars=specData[id]||Array(34).fill(3);
+  el.innerHTML=bars.map(h=>`<div class="sb" style="height:${Math.max(2,Math.min(48,h))}px;background:${on?st.color:st.color+"28"};${on&&h>28?`box-shadow:0 0 3px ${st.color}55`:""};"></div>`).join("");
+}
+function startSpec(){
+  clearInterval(specTimer);
+  specTimer=setInterval(()=>{
+    if(!stemsDone)return;const rng=mkRF(Date.now()^0xabcd);
+    STEMS.forEach(s=>{const on=s.id===sel;specData[s.id]=Array.from({length:34},()=>on?Math.max(5,rng()*48+5):Math.max(2,rng()*10+2));renderSB(s.id);});
+  },70);
+}
+
+/* ══════════════ AUDIO — SAMPLER + SYNTH FALLBACK ══════════════ */
+// BASE_MIDI: the reference pitch we assume the stem is tuned to.
+// For a musical stem we use C4 (MIDI 60) as the "identity" pitch.
+const BASE_MIDI=60;
+const BASE_FREQ=440*Math.pow(2,(BASE_MIDI-69)/12); // 261.63 Hz
+
+function playNote(midi,freq){
+  if(aKeys.has(midi))return;
+  getACtx();
+  const ac=actx;
+  if(samplerBufs[sel]){
+    // ── SAMPLER MODE ─────────────────────────
+    const buf=samplerBufs[sel];
+    const src=ac.createBufferSource();
+    src.buffer=buf;
+    // Pitch-shift: ratio of target freq to base freq
+    src.playbackRate.value=freq/BASE_FREQ;
+    const g=ac.createGain();
+    g.gain.setValueAtTime(0.001,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.7,ac.currentTime+0.01);
+    // Auto-fade after 3s so notes don't overlap forever
+    g.gain.setTargetAtTime(0.001,ac.currentTime+2.5,0.3);
+    src.connect(g);g.connect(ac.destination);
+    src.start();
+    src.stop(ac.currentTime+4);
+    if(activeNodes[midi])try{activeNodes[midi].src.stop();}catch{}
+    activeNodes[midi]={src,g};
+  }else{
+    // ── SYNTH FALLBACK ────────────────────────
+    if(anodes[midi]){try{anodes[midi].g.gain.setTargetAtTime(0.001,ac.currentTime,.02);}catch{}}
+    const g=ac.createGain();g.connect(ac.destination);
+    synthNote(ac,g,midi,freq,sel);
+    anodes[midi]={g};
+  }
+  aKeys.add(midi);renderKey(midi,true);updAnote();
+}
+
+function relNote(midi){
+  if(!aKeys.has(midi))return;
+  const ac=actx;
+  if(samplerBufs[sel]&&activeNodes[midi]){
+    const{src,g}=activeNodes[midi];
+    try{g.gain.setTargetAtTime(0.001,ac.currentTime,0.08);src.stop(ac.currentTime+0.5);}catch{}
+    delete activeNodes[midi];
+  }else if(anodes[midi]){
+    releaseAnodes(midi,sel,ac);
+  }
+  aKeys.delete(midi);renderKey(midi,false);updAnote();
+}
+
+function synthNote(ac,g,midi,freq,instr){
+  if(instr==="drums"){
+    const o=ac.createOscillator();o.type="square";o.frequency.setValueAtTime(freq*.7,ac.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.08,ac.currentTime+.18);
+    const hp=ac.createBiquadFilter();hp.type="highpass";hp.frequency.value=600;o.connect(hp);hp.connect(g);
+    g.gain.setValueAtTime(.5,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.3);o.start();o.stop(ac.currentTime+.35);
+  }else if(instr==="bass"){
+    const o=ac.createOscillator();o.type="sine";o.frequency.value=freq/2;
+    const lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=340;lp.Q.value=6;o.connect(lp);lp.connect(g);
+    g.gain.setValueAtTime(.001,ac.currentTime);g.gain.exponentialRampToValueAtTime(.52,ac.currentTime+.06);g.gain.setTargetAtTime(.3,ac.currentTime+.12,.4);o.start();anodes[midi].o=o;
+  }else if(instr==="vocals"){
+    const o=ac.createOscillator();o.type="sawtooth";o.frequency.value=freq;
+    const f1=ac.createBiquadFilter();f1.type="bandpass";f1.frequency.value=800;f1.Q.value=4;
+    const f2=ac.createBiquadFilter();f2.type="bandpass";f2.frequency.value=1200;f2.Q.value=5;
+    const gm=ac.createGain();gm.gain.value=.5;o.connect(f1);o.connect(f2);f1.connect(g);f2.connect(gm);gm.connect(g);
+    g.gain.setValueAtTime(.001,ac.currentTime);g.gain.exponentialRampToValueAtTime(.3,ac.currentTime+.05);g.gain.setTargetAtTime(.16,ac.currentTime+.15,.5);o.start();anodes[midi].o=o;
+  }else{
+    // piano / other / default
+    const o1=ac.createOscillator();o1.type="triangle";o1.frequency.value=freq;
+    const o2=ac.createOscillator();o2.type="sine";o2.frequency.value=freq*2;
+    const o3=ac.createOscillator();o3.type="sine";o3.frequency.value=freq*4;
+    const g2=ac.createGain();g2.gain.value=.14;const g3=ac.createGain();g3.gain.value=.04;
+    o1.connect(g);o2.connect(g2);g2.connect(g);o3.connect(g3);g3.connect(g);
+    g.gain.setValueAtTime(.001,ac.currentTime);g.gain.exponentialRampToValueAtTime(.48,ac.currentTime+.01);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+2.3);
+    [o1,o2,o3].forEach(o=>{o.start();o.stop(ac.currentTime+2.5);});
+  }
+}
+function releaseAnodes(midi,instr,ac){
+  if(!anodes[midi])return;
+  const{g,o}=anodes[midi];
+  if(instr==="bass"||instr==="vocals"){
+    const rel=instr==="bass"?.4:.12;
+    try{g.gain.setTargetAtTime(.001,ac.currentTime,rel*.3);}catch{}
+    setTimeout(()=>{try{if(o)o.stop();}catch{}delete anodes[midi];},rel*2000);
+  }
+}
+
+/* ══════════════ PIANO BUILD ══════════════ */
+function buildPiano(){
+  const c=document.getElementById("pkeys");c.style.width=PW+"px";c.style.height=WH+"px";c.innerHTML="";
+  KEYS.filter(k=>!k.blk).forEach(k=>c.appendChild(mkKey(k)));
+  KEYS.filter(k=> k.blk).forEach(k=>c.appendChild(mkKey(k)));
+}
+function getC(){return(STEMS.find(s=>s.id===sel)||STEMS[0]).color;}
+function mkKey(k){
+  const el=document.createElement("div");el.id="k"+k.m;
+  if(!k.blk){el.className="wk";el.style.cssText=`left:${k.x}px;width:${WW-1}px;height:${WH}px;background:#e4e4e6;border:1px solid #9898a8;box-shadow:0 3px 6px rgba(0,0,0,.35);`;}
+  else{el.className="bk";el.style.cssText=`left:${k.x}px;width:${BW}px;height:${BH}px;background:#161620;border:1px solid #060606;box-shadow:2px 5px 10px rgba(0,0,0,.65);`;}
+  el.onmousedown=e=>{e.stopPropagation();playNote(k.m,k.freq);};
+  el.onmouseenter=e=>{if(e.buttons===1)playNote(k.m,k.freq);};
+  el.onmouseleave=()=>{if(aKeys.has(k.m))relNote(k.m);};
+  el.ontouchstart=e=>{e.preventDefault();playNote(k.m,k.freq);};
+  el.ontouchend=e=>{e.preventDefault();relNote(k.m);};
+  el.title=k.name;addKL(el,k);return el;
+}
+function addKL(el,k){
+  const hb=12*(oct+1),ht=hb+18,inKB=k.m>=hb&&k.m<=ht,kl=Object.entries(KB).find(([,v])=>hb+v===k.m)?.[0]?.toUpperCase();
+  if(inKB&&kl){const s=document.createElement("span");s.className="kl";s.id="kl"+k.m;s.style.color=k.blk?"#3a3a55":"#aaa";s.textContent=kl;el.appendChild(s);}
+  if(!k.blk&&k.m%12===0){const s=document.createElement("span");s.className="nl";s.style.color="#ccc";s.textContent=k.name;el.appendChild(s);}
+}
+function renderKey(midi,on){
+  const el=document.getElementById("k"+midi);if(!el)return;
+  const k=KEYS.find(k=>k.m===midi);if(!k)return;const c=getC();
+  if(!k.blk){
+    el.style.background=on?`linear-gradient(180deg,${c}28,${c}0a)`:"#e4e4e6";
+    el.style.border=on?`1px solid ${c}55`:"1px solid #9898a8";el.style.borderTop=on?`2px solid ${c}`:"1px solid #9898a8";
+    el.style.boxShadow=on?`0 0 14px ${c}66,inset 0 -2px 4px rgba(0,0,0,.1)`:"0 3px 6px rgba(0,0,0,.35)";
+    const l=el.querySelector(".kl");if(l)l.style.color=on?c:"#aaa";
+  }else{
+    el.style.background=on?`linear-gradient(180deg,${c},${c}cc)`:"#161620";
+    el.style.border=on?`1px solid ${c}`:"1px solid #060606";el.style.borderTop=on?`2px solid ${c}dd`:"1px solid #060606";
+    el.style.boxShadow=on?`0 0 16px ${c}bb,2px 5px 8px rgba(0,0,0,.6)`:"2px 5px 10px rgba(0,0,0,.65)";
+    const l=el.querySelector(".kl");if(l)l.style.color=on?"rgba(255,255,255,.8)":"#3a3a55";
+  }
+}
+function updAnote(){
+  const el=document.getElementById("anote"),c=getC();
+  if(aKeys.size>0){const ns=[...aKeys].map(m=>KEYS.find(k=>k.m===m)?.name).filter(Boolean);el.textContent="♪ "+ns.join(" ");el.style.color=c;}
+  else{el.textContent="A–J blancas · W E T Y U negras (octava activa)";el.style.color="#181832";}
+}
+function chOct(d){
+  oct=Math.max(0,Math.min(7,oct+d));const c=getC();
+  document.getElementById("oval").textContent=oct;document.getElementById("oval").style.color=c;
+  const ps=document.getElementById("pscroll");ps.scrollTo({left:Math.max(0,(2+(oct-1)*7)*WW-ps.clientWidth/3),behavior:"smooth"});
+  rebuildKL();
+}
+function rebuildKL(){
+  KEYS.forEach(k=>{
+    const el=document.getElementById("k"+k.m);if(!el)return;
+    const old=el.querySelector(".kl");if(old)old.remove();
+    const hb=12*(oct+1),ht=hb+18,inKB=k.m>=hb&&k.m<=ht,kl=Object.entries(KB).find(([,v])=>hb+v===k.m)?.[0]?.toUpperCase();
+    if(inKB&&kl){const s=document.createElement("span");s.className="kl";s.style.color=k.blk?"#3a3a55":"#aaa";s.textContent=kl;const nl=el.querySelector(".nl");if(nl)el.insertBefore(s,nl);else el.appendChild(s);}
+  });
+}
+window.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.repeat)return;
+  if(e.key==="z"||e.key==="Z"){chOct(-1);return;}if(e.key==="x"||e.key==="X"){chOct(1);return;}
+  const midi=k2m(e.key);if(midi!==null){e.preventDefault();const kd=KEYS.find(k=>k.m===midi);if(kd)playNote(kd.m,kd.freq);}
+});
+window.addEventListener("keyup",e=>{if(e.target.tagName==="INPUT")return;const midi=k2m(e.key);if(midi!==null)relNote(midi);});
+
+/* ══════════════ TOAST ══════════════ */
+function showToast(type,info){
+  const t=document.getElementById("toast");
+  if(type==="dl"){
+    t.style.cssText="display:block;background:#07070f;border:1px solid rgba(0,212,255,.3);position:fixed;bottom:14px;right:14px;z-index:9999;border-radius:10px;padding:13px 15px;min-width:290px;box-shadow:0 10px 40px rgba(0,0,0,.75);";
+    t.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:10px;font-weight:700;color:#00d4ff;font-family:system-ui,sans-serif;">↓ DESCARGANDO STEM</div>
+      <div style="font-size:9px;color:#2a4a5a;font-family:system-ui,sans-serif;line-height:1.9;">
+        Stem: <span style="color:#00d4ff">${info.stem}</span><br>
+        Archivo: <span style="color:#9ad4ff">${info.fname}</span>
+      </div>
+      <div style="margin-top:10px;background:#0a1a2a;border-radius:6px;padding:9px 10px;border:1px solid rgba(0,212,255,.12);">
+        <div style="font-size:7.5px;font-weight:700;color:#00d4ff;font-family:system-ui,sans-serif;margin-bottom:6px;letter-spacing:.08em;">CÓMO USARLO EN GARAGEBAND →</div>
+        <div style="font-size:8px;color:#1a4a5a;font-family:system-ui,sans-serif;line-height:2.1;">
+          <strong style="color:#2a6a7a">Mac:</strong> Arrastra el .mp3 a una pista de GarageBand<br>
+          <strong style="color:#2a6a7a">Mac — como instrumento:</strong> Abre Quick Sampler →<br>
+          &nbsp;&nbsp;arrastra el .mp3 → toca desde el teclado<br>
+          <strong style="color:#2a6a7a">iOS:</strong> Comparte vía AirDrop → Abrir con GarageBand<br>
+          &nbsp;&nbsp;→ arrastra a pista de audio
+        </div>
+      </div>
+      <div style="margin-top:9px;height:2px;background:#0a1a2a;border-radius:1px;overflow:hidden;"><div style="height:100%;background:#00d4ff;animation:scanH 8s linear forwards"></div></div>`;
+    setTimeout(()=>t.style.display="none",8200);
+  }
+}
+</script>
+</body>
+</html>
